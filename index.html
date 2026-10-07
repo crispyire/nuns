@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f4ee">
+  <meta name="description" content="Live weather and a five-day outlook for towns and cities across Ireland, powered by open data.">
+  <title>Weather, Ireland | Open Forecast</title>
+  <link rel="preconnect" href="https://api.open-meteo.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f4ee;
+      --ink: #192b28;
+      --muted: #67736d;
+      --line: #d9ded5;
+      --green: #245e4e;
+      --green-light: #dce9df;
+      --orange: #c76b3c;
+      --sky: #dce9e9;
+      --mono: "DM Mono", monospace;
+      --sans: "DM Sans", sans-serif;
+      --serif: "Newsreader", Georgia, serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 14px; }
+    button { color: inherit; font: inherit; }
+    .shell { width: min(1180px, calc(100% - 64px)); margin: 0 auto; }
+    header { height: 72px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 700; letter-spacing: .02em; }
+    .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; color: var(--paper); background: var(--green); border-radius: 50% 50% 50% 4px; font-family: var(--serif); font-size: 18px; }
+    .header-right { display: flex; align-items: center; gap: 20px; color: var(--muted); font-size: 12px; }
+    .live-mark { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+    .live-mark::before { content: ""; width: 7px; height: 7px; background: #49835e; border-radius: 50%; box-shadow: 0 0 0 3px #49835e22; }
+    main { padding: 36px 0 60px; }
+    .eyebrow { color: var(--green); font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; }
+    .intro { display: flex; align-items: end; justify-content: space-between; margin-bottom: 24px; }
+    h1 { margin: 8px 0 0; font-family: var(--serif); font-size: clamp(38px, 5vw, 60px); line-height: .98; font-weight: 500; letter-spacing: -.025em; }
+    .date-stamp { color: var(--muted); font-family: var(--mono); font-size: 11px; text-align: right; line-height: 1.8; }
+    .top-grid { display: grid; grid-template-columns: minmax(0, 1.48fr) minmax(290px, .85fr); gap: 14px; }
+    .panel { border: 1px solid var(--line); border-radius: 5px; }
+    .current { position: relative; min-height: 275px; padding: 24px 28px; overflow: hidden; background: var(--sky); }
+    .current::after { content: ""; position: absolute; right: -22px; bottom: -92px; width: 280px; height: 230px; border: 1px solid #245e4e22; border-radius: 50%; box-shadow: 0 0 0 24px #245e4e08, 0 0 0 49px #245e4e08, 0 0 0 76px #245e4e08; pointer-events: none; }
+    .current-top { display: flex; justify-content: space-between; align-items: start; position: relative; z-index: 1; }
+    .place-select { padding: 0 22px 0 0; border: 0; appearance: none; background: transparent; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+    .select-wrap { position: relative; }
+    .select-wrap::after { content: "⌄"; position: absolute; top: -2px; right: 4px; color: var(--green); pointer-events: none; }
+    .condition { margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .weather-glyph { font-size: 30px; line-height: 1; }
+    .temperature-row { display: flex; align-items: center; gap: 19px; position: relative; z-index: 1; margin: 29px 0 22px; }
+    .temperature { font-family: var(--serif); font-size: 82px; letter-spacing: -.06em; line-height: .9; }
+    .feels { padding-left: 18px; border-left: 1px solid #245e4e33; color: var(--muted); font-size: 12px; line-height: 1.7; }
+    .current-bottom { display: flex; gap: 28px; position: relative; z-index: 1; }
+    .metric-label { display: block; margin-bottom: 5px; color: var(--muted); font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+    .metric-value { font-size: 13px; font-weight: 600; }
+    .summary { display: flex; flex-direction: column; justify-content: space-between; padding: 24px 25px; background: #fffefa; }
+    .summary h2 { margin: 0 0 14px; font-family: var(--serif); font-size: 24px; font-weight: 500; }
+    .summary-copy { max-width: 300px; margin: 0; color: #45544e; font-size: 13px; line-height: 1.65; }
+    .summary-foot { display: flex; align-items: end; justify-content: space-between; margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .source-tag { color: var(--green); font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: .07em; }
+    .updated { color: var(--muted); font-family: var(--mono); font-size: 9px; }
+    .section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 33px 0 12px; }
+    .section-head h2 { margin: 0; font-family: var(--serif); font-size: 26px; font-weight: 500; }
+    .section-note { color: var(--muted); font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+    .forecast { display: grid; grid-template-columns: repeat(5, 1fr); overflow: hidden; background: #fffefa; }
+    .day { min-height: 158px; padding: 18px 16px 15px; border-right: 1px solid var(--line); }
+    .day:last-child { border-right: 0; }
+    .day-name { color: var(--muted); font-family: var(--mono); font-size: 10px; text-transform: uppercase; }
+    .day-glyph { margin: 18px 0 14px; font-size: 23px; }
+    .day-condition { min-height: 17px; color: var(--muted); font-size: 11px; }
+    .day-temperatures { display: flex; gap: 9px; margin-top: 9px; font-size: 12px; font-weight: 600; }
+    .day-low { color: #87918a; font-weight: 400; }
+    .rain { margin-top: 7px; color: #4b8290; font-family: var(--mono); font-size: 9px; }
+    .places-head { margin-top: 35px; }
+    .places-grid { display: grid; grid-template-columns: repeat(5, 1fr); background: #fffefa; }
+    .place-card { min-height: 122px; padding: 17px 16px; border-right: 1px solid var(--line); cursor: pointer; transition: background .18s ease; }
+    .place-card:last-child { border-right: 0; }
+    .place-card:hover, .place-card[aria-pressed="true"] { background: var(--green-light); }
+    .place-name { font-size: 12px; font-weight: 700; }
+    .place-weather { display: flex; align-items: center; justify-content: space-between; margin-top: 15px; }
+    .place-temp { font-family: var(--serif); font-size: 30px; line-height: 1; }
+    .place-desc { margin-top: 6px; color: var(--muted); font-size: 10px; }
+    footer { display: flex; align-items: start; justify-content: space-between; gap: 24px; margin-top: 34px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; line-height: 1.7; }
+    footer a { color: var(--green); text-underline-offset: 3px; }
+    .foot-meta { font-family: var(--mono); font-size: 9px; white-space: nowrap; }
+    .loading { color: var(--muted); }
+    .error { padding: 10px 12px; color: #8b452e; background: #f9e7dc; font-size: 12px; }
+    @media (max-width: 700px) {
+      .shell { width: min(100% - 32px, 560px); }
+      header { height: 60px; }
+      .header-right { gap: 12px; }
+      .header-right > span:first-child { display: none; }
+      main { padding-top: 27px; }
+      .intro { align-items: start; }
+      .date-stamp { font-size: 9px; }
+      .top-grid { grid-template-columns: 1fr; }
+      .current { min-height: 253px; padding: 21px; }
+      .temperature { font-size: 76px; }
+      .summary { min-height: 190px; }
+      .section-head { margin-top: 27px; }
+      .forecast { grid-template-columns: repeat(5, minmax(105px, 1fr)); overflow-x: auto; }
+      .day { padding: 15px 12px; }
+      .places-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .place-card { border-bottom: 1px solid var(--line); }
+      .place-card:nth-child(2n) { border-right: 0; }
+      .place-card:last-child { grid-column: span 2; border-bottom: 0; }
+      footer { flex-direction: column; gap: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><span class="brand-mark" aria-hidden="true">i</span><span>FIELD / WEATHER</span></div>
+      <div class="header-right"><span>Open data for Ireland</span><span class="live-mark" id="live-status">Connecting</span></div>
+    </header>
+    <main>
+      <div class="intro">
+        <div><div class="eyebrow">The island, at a glance</div><h1>Weather, Ireland.</h1></div>
+        <div class="date-stamp" id="date-stamp">IRELAND<br>LOCAL TIME</div>
+      </div>
+      <section class="top-grid" aria-label="Current local weather">
+        <article class="current panel">
+          <div class="current-top">
+            <div><div class="select-wrap"><select class="place-select" id="city-select" aria-label="Choose a location"></select></div><div class="condition" id="current-condition">Loading local conditions</div></div>
+            <div class="weather-glyph" id="current-glyph" aria-hidden="true">◌</div>
+          </div>
+          <div class="temperature-row"><div class="temperature" id="current-temp">--°</div><div class="feels">Feels like<br><strong id="feels-like">--°</strong></div></div>
+          <div class="current-bottom">
+            <div><span class="metric-label">Rain chance</span><span class="metric-value" id="rain-chance">--%</span></div>
+            <div><span class="metric-label">Wind</span><span class="metric-value" id="wind-speed">-- km/h</span></div>
+            <div><span class="metric-label">Humidity</span><span class="metric-value" id="humidity">--%</span></div>
+          </div>
+        </article>
+        <article class="summary panel">
+          <div><h2>Today, nearby</h2><p class="summary-copy" id="summary-copy">Fetching the latest forecast for your selected location.</p></div>
+          <div class="summary-foot"><span class="source-tag">● Open forecast</span><span class="updated" id="updated-at">Updating</span></div>
+        </article>
+      </section>
+      <section aria-labelledby="forecast-title">
+        <div class="section-head"><h2 id="forecast-title">The next five days</h2><span class="section-note">Daily outlook / local time</span></div>
+        <div class="forecast panel" id="forecast-grid" aria-live="polite"><div class="day loading">Loading forecast…</div></div>
+      </section>
+      <section aria-labelledby="places-title">
+        <div class="section-head places-head"><h2 id="places-title">Around the island</h2><span class="section-note">Select a place to explore</span></div>
+        <div class="places-grid panel" id="places-grid" aria-live="polite"></div>
+      </section>
+      <footer>
+        <div>Forecast data from <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>, an open-source weather API. Data is model-based and provided without warranty. Weather descriptions follow the WMO weather interpretation codes.</div>
+        <div class="foot-meta">NO API KEY · OPEN DATA</div>
+      </footer>
+      <div id="error-message" role="status" hidden></div>
+    </main>
+  </div>
+  <script>
+    const locations = [
+      { name: "Dublin", region: "Leinster", latitude: 53.3498, longitude: -6.2603 },
+      { name: "Cork", region: "Munster", latitude: 51.8985, longitude: -8.4756 },
+      { name: "Galway", region: "Connacht", latitude: 53.2707, longitude: -9.0568 },
+      { name: "Belfast", region: "Ulster", latitude: 54.5973, longitude: -5.9301 },
+      { name: "Limerick", region: "Munster", latitude: 52.6638, longitude: -8.6267 }
+    ];
+    const weatherTypes = {
+      0: ["Clear sky", "☀️"], 1: ["Mainly clear", "🌤️"], 2: ["Partly cloudy", "⛅"], 3: ["Overcast", "☁️"],
+      45: ["Fog", "🌫️"], 48: ["Rime fog", "🌫️"], 51: ["Light drizzle", "🌦️"], 53: ["Drizzle", "🌦️"], 55: ["Heavy drizzle", "🌧️"],
+      56: ["Freezing drizzle", "🌧️"], 57: ["Freezing drizzle", "🌧️"], 61: ["Light rain", "🌦️"], 63: ["Rain", "🌧️"], 65: ["Heavy rain", "🌧️"],
+      66: ["Freezing rain", "🌧️"], 67: ["Freezing rain", "🌧️"], 71: ["Light snow", "🌨️"], 73: ["Snow", "🌨️"], 75: ["Heavy snow", "❄️"],
+      77: ["Snow grains", "🌨️"], 80: ["Rain showers", "🌦️"], 81: ["Showers", "🌧️"], 82: ["Heavy showers", "🌧️"], 85: ["Snow showers", "🌨️"],
+      86: ["Heavy snow showers", "🌨️"], 95: ["Thunderstorm", "⛈️"], 96: ["Thunderstorm, hail", "⛈️"], 99: ["Thunderstorm, hail", "⛈️"]
+    };
+    const byId = (id) => document.getElementById(id);
+    const labelFor = (code) => weatherTypes[code] || ["Variable", "🌥️"];
+    const degrees = (value) => `${Math.round(value)}°`;
+    const dayName = (date, options) => new Intl.DateTimeFormat("en-IE", { timeZone: "Europe/Dublin", ...options }).format(new Date(`${date}T12:00:00`));
+    const endpoint = (place) => {
+      const params = new URLSearchParams({
+        latitude: place.latitude, longitude: place.longitude, timezone: "Europe/Dublin",
+        current: "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m",
+        daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+        forecast_days: "5", temperature_unit: "celsius", wind_speed_unit: "kmh"
+      });
+      return `https://api.open-meteo.com/v1/forecast?${params}`;
+    };
+    async function getWeather(place) {
+      const response = await fetch(endpoint(place));
+      if (!response.ok) throw new Error(`Weather service returned ${response.status}`);
+      return response.json();
+    }
+    function renderCurrent(place, data) {
+      const current = data.current;
+      const [description, icon] = labelFor(current.weather_code);
+      byId("current-condition").textContent = description;
+      byId("current-glyph").textContent = icon;
+      byId("current-temp").textContent = degrees(current.temperature_2m);
+      byId("feels-like").textContent = degrees(current.apparent_temperature);
+      byId("rain-chance").textContent = `${data.daily.precipitation_probability_max[0] ?? 0}%`;
+      byId("wind-speed").textContent = `${Math.round(current.wind_speed_10m)} km/h`;
+      byId("humidity").textContent = `${current.relative_humidity_2m}%`;
+      byId("summary-copy").textContent = `${description} in ${place.name} today, with a high of ${degrees(data.daily.temperature_2m_max[0])} and a low of ${degrees(data.daily.temperature_2m_min[0])}. The chance of rain is ${data.daily.precipitation_probability_max[0] ?? 0}%.`;
+      byId("updated-at").textContent = `Updated ${new Intl.DateTimeFormat("en-IE", { timeZone: "Europe/Dublin", hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
+      byId("date-stamp").innerHTML = `${dayName(current.time.slice(0, 10), { weekday: "long", day: "numeric", month: "long" }).toUpperCase()}<br>IRELAND · LOCAL TIME`;
+    }
+    function renderForecast(data) {
+      byId("forecast-grid").innerHTML = data.daily.time.map((date, index) => {
+        const [description, icon] = labelFor(data.daily.weather_code[index]);
+        return `<article class="day"><div class="day-name">${index === 0 ? "Today" : dayName(date, { weekday: "short" })}</div><div class="day-glyph" aria-hidden="true">${icon}</div><div class="day-condition">${description}</div><div class="day-temperatures"><span>${degrees(data.daily.temperature_2m_max[index])}</span><span class="day-low">${degrees(data.daily.temperature_2m_min[index])}</span></div><div class="rain">↓ ${data.daily.precipitation_probability_max[index] ?? 0}% rain</div></article>`;
+      }).join("");
+    }
+    function renderPlaces(results, selectedName) {
+      byId("places-grid").innerHTML = results.map(({ place, data }) => {
+        const [description, icon] = labelFor(data.current.weather_code);
+        return `<button class="place-card" type="button" data-city="${place.name}" aria-pressed="${place.name === selectedName}"><span class="place-name">${place.name}</span><span class="place-weather"><span class="place-temp">${degrees(data.current.temperature_2m)}</span><span aria-hidden="true">${icon}</span></span><span class="place-desc">${description} · ${place.region}</span></button>`;
+      }).join("");
+      byId("places-grid").querySelectorAll("[data-city]").forEach((button) => button.addEventListener("click", () => selectCity(button.dataset.city)));
+    }
+    let cachedResults = [];
+    async function selectCity(name) {
+      const place = locations.find((location) => location.name === name);
+      if (!place) return;
+      byId("city-select").value = place.name;
+      const cached = cachedResults.find((result) => result.place.name === place.name);
+      if (cached) {
+        renderCurrent(place, cached.data);
+        renderForecast(cached.data);
+        renderPlaces(cachedResults, place.name);
+        return;
+      }
+      byId("current-condition").textContent = "Loading local conditions";
+      try {
+        const data = await getWeather(place);
+        cachedResults = [...cachedResults.filter((result) => result.place.name !== place.name), { place, data }];
+        renderCurrent(place, data);
+        renderForecast(data);
+        renderPlaces(cachedResults, place.name);
+      } catch (error) {
+        byId("error-message").hidden = false;
+        byId("error-message").className = "error";
+        byId("error-message").textContent = "Live forecast unavailable right now. Check your connection and try again.";
+        byId("current-condition").textContent = "Forecast unavailable";
+        console.error("Could not load weather data", error);
+      }
+    }
+    async function start() {
+      byId("city-select").innerHTML = locations.map((place) => `<option value="${place.name}">${place.name} · ${place.region}</option>`).join("");
+      byId("city-select").addEventListener("change", (event) => selectCity(event.target.value));
+      byId("places-grid").innerHTML = locations.map((place) => `<div class="place-card loading"><span class="place-name">${place.name}</span><div class="place-desc">Loading forecast…</div></div>`).join("");
+      byId("forecast-grid").innerHTML = "";
+      try {
+        const results = await Promise.all(locations.map(async (place) => ({ place, data: await getWeather(place) })));
+        cachedResults = results;
+        renderPlaces(results, "Dublin");
+        await selectCity("Dublin");
+        byId("live-status").textContent = "Live data";
+      } catch (error) {
+        byId("live-status").textContent = "Offline";
+        byId("error-message").hidden = false;
+        byId("error-message").className = "error";
+        byId("error-message").textContent = "Live forecast unavailable right now. Check your connection and reload to try again.";
+        byId("current-condition").textContent = "Forecast unavailable";
+        byId("summary-copy").textContent = "We could not reach the open weather service. Please check your connection and reload.";
+        console.error("Could not load Ireland forecasts", error);
+      }
+    }
+    start();
+  </script>
+</body>
+</html>
